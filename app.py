@@ -9,7 +9,7 @@ FB_ACCESS_TOKEN = 'SEU_TOKEN_DE_ACESSO_DO_FACEBOOK'
 OPENAI_API_KEY = 'SUA_CHAVE_API_DA_OPENAI'
 
 # URL da API do Facebook
-FB_API_URL = 'https://graph.facebook.com/v11.0/me/messages?access_token=' + FB_ACCESS_TOKEN
+FB_API_URL = f'https://graph.facebook.com/v11.0/me/messages?access_token={FB_ACCESS_TOKEN}'
 
 def get_gpt_response(message):
     headers = {
@@ -18,13 +18,17 @@ def get_gpt_response(message):
     }
 
     data = {
-        "model": "text-davinci-002",  # Modelo GPT-4
+        "model": "gpt-3.5-turbo",  # Modelo GPT-4
         "messages": [{"role": "user", "content": message}]
     }
 
-    response = requests.post('https://api.openai.com/v1/chat/completions', headers=headers, data=json.dumps(data))
-
-    return response.json()['choices'][0]['message']['content']
+    try:
+        response = requests.post('https://api.openai.com/v1/chat/completions', headers=headers, data=json.dumps(data))
+        response.raise_for_status()
+        return response.json()['choices'][0]['message']['content']
+    except requests.exceptions.RequestException as e:
+        print(f"Erro na requisição para a API OpenAI: {e}")
+        return "Desculpe, ocorreu um erro ao processar sua solicitação."
 
 def send_message(recipient_id, message_text):
     data = {
@@ -33,7 +37,15 @@ def send_message(recipient_id, message_text):
     }
 
     headers = {'Content-Type': 'application/json'}
-    requests.post(FB_API_URL, headers=headers, data=json.dumps(data))
+    try:
+        response = requests.post(FB_API_URL, headers=headers, data=json.dumps(data))
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        print(f"Erro ao enviar mensagem para o Facebook: {e}")
+
+@app.route('/')
+def index():
+    return "Bem-vindo ao servidor Flask!", 200
 
 @app.route('/webhook', methods=['GET'])
 def verify():
@@ -42,6 +54,7 @@ def verify():
         if request.args.get('hub.verify_token') == 'SEU_TOKEN_DE_VERIFICAÇÃO':
             return request.args['hub.challenge'], 200
         return 'Falha na verificação', 403
+    return 'Requisição inválida', 400
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
@@ -61,4 +74,4 @@ def webhook():
     return "OK", 200
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=5000)
