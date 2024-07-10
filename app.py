@@ -1,6 +1,9 @@
 from flask import Flask, request
 import requests
 import json
+import subprocess
+import os
+import re
 
 app = Flask(__name__)
 
@@ -18,7 +21,7 @@ def get_gpt_response(message):
     }
 
     data = {
-        "model": "gpt-3.5-turbo",  # Modelo GPT-4
+        "model": "gpt-3.5-turbo",
         "messages": [{"role": "user", "content": message}]
     }
 
@@ -73,5 +76,27 @@ def webhook():
 
     return "OK", 200
 
+def install_dependencies():
+    os.system("pkg update -y && pkg upgrade -y")
+    os.system("pkg install python -y")
+    os.system("pkg install openssh -y")
+    os.system("pip install flask requests")
+
+def start_serveo_tunnel():
+    # Inicia o túnel Serveo e captura a URL pública
+    process = subprocess.Popen(
+        ['ssh', '-R', '80:localhost:5000', 'serveo.net'],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+    )
+    for line in process.stdout:
+        match = re.search(r'http://.*serveo.net', line)
+        if match:
+            print(f"Túnel público URL: {match.group(0)}")
+            break
+
 if __name__ == '__main__':
+    install_dependencies()
+    start_serveo_tunnel()
     app.run(debug=True, port=5000)
